@@ -1,14 +1,26 @@
-from openai import OpenAI, OpenAIError
+from openai import AsyncOpenAI, OpenAIError
 import os
 from fastapi import UploadFile, HTTPException
 import tempfile
 from app.utils.logger import logger
-
+from dotenv import load_dotenv
+from typing import Dict
+from ..schema import TranscribeAndTranslate
 
 class WhisperService:
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.allowed_extensions = {".mp3", ".wav", ".m4a", ".mp4"}
+        load_dotenv(override=True)
+        api_key = os.getenv("OPENAI_API_KEY")
+        
+        # Debug logging
+        # if api_key:
+        #     logger.info(f"API key loaded: {len(api_key)} characters, starts with: {api_key[:10]}...")
+        # else:
+        #     logger.error("No OPENAI_API_KEY found in environment variables")
+
+        self.client = AsyncOpenAI(api_key=api_key)
+
+        self.allowed_extensions = {".mp3", ".wav", ".m4a", ".mp4", ".webm", ".mpga", ".mpeg"}
         self.max_file_size_mb = 25
 
     async def transcribe(self, file: UploadFile) -> str:
@@ -24,6 +36,7 @@ class WhisperService:
 
         # Validating file type
         if not any(file.filename.endswith(ext) for ext in self.allowed_extensions):
+            logger.error("Unsupported file type. Bad request.")
             raise HTTPException(
                 status_code=400,
                 detail="Unsupported file type. Please upload MP3, WAV, MP4, or M4A."
@@ -42,13 +55,13 @@ class WhisperService:
         tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[-1]) as tmp:
-                tmp.write(await file_content)
+                tmp.write(file_content)
                 tmp_path = tmp.name
 
             # Transcribe with OpenAI Whisper
             with open(tmp_path, "rb") as audio_file:
-                response = self.client.audio.transcriptions.create(
-                    model="gpt-4o-transcribe",
+                response = await self.client.audio.transcriptions.create(
+                    model="whisper-1",
                     file=audio_file
                 )
             
@@ -72,3 +85,57 @@ class WhisperService:
                     os.remove(tmp_path)
                 except Exception:
                     pass
+
+
+    async def translate(self, text: str, language: str) -> str:
+        try:
+            prompt = (
+                f"Translate the following English text into {language}: \n\n{text}"
+            )
+
+            response = await self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a professional translator."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+            )
+
+            return response.choices[0].message.content.strip()
+        except OpenAIError as e:
+            logger.error(f"OpenAI API error during translation: {e}")
+            raise HTTPException(
+                status_code=502,
+                detail="An error occurred while contacting the translation service. Please try again later."
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error during translation: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Something went wrong during translation. Please try again."
+            )
+        
+    
+    async def transcribe_and_translate(self, file: UploadFile, target_language: str) -> Dict[str, str]:
+        """
+        Transcribes an audio file and translates the result.
+
+        Args:
+            file (UploadFile): The uploaded audio file
+            target_language (str): Target language for translation
+
+        Returns:
+            dict: Dictionary containing both transcription and translation
+        """
+        # First transcribe the audio
+        transcribed_text = await self.transcribe(file)
+
+        # # Then translate the transcribed text
+        translated_text = await self.translate(text=transcribed_text, language=target_language)        
+        return TranscribeAndTranslate(
+            transcription=transcribed_text,
+            translation=translated_text,
+            target_language=target_language
+        )
+    

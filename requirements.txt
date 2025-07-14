@@ -1,5 +1,5 @@
-# fastapi
-# uvicorn
+fastapi[standard]
 openai
 python-multipart
 python-dotenv
+aiohttp
