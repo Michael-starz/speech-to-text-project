@@ -3,3 +3,5 @@ openai
 python-multipart
 python-dotenv
 aiohttp
+nltk
+numpy

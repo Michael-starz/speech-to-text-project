@@ -6,20 +6,15 @@ from app.utils.logger import logger
 from dotenv import load_dotenv
 from typing import Dict
 from ..schema import TranscribeAndTranslate
+# import time
+# from pydub import AudioSegment
+# from pydub.utils import which
 
 class WhisperService:
     def __init__(self):
         load_dotenv(override=True)
         api_key = os.getenv("OPENAI_API_KEY")
-        
-        # Debug logging
-        # if api_key:
-        #     logger.info(f"API key loaded: {len(api_key)} characters, starts with: {api_key[:10]}...")
-        # else:
-        #     logger.error("No OPENAI_API_KEY found in environment variables")
-
         self.client = AsyncOpenAI(api_key=api_key)
-
         self.allowed_extensions = {".mp3", ".wav", ".m4a", ".mp4", ".webm", ".mpga", ".mpeg"}
         self.max_file_size_mb = 25
 
@@ -62,7 +57,8 @@ class WhisperService:
             with open(tmp_path, "rb") as audio_file:
                 response = await self.client.audio.transcriptions.create(
                     model="whisper-1",
-                    file=audio_file
+                    file=audio_file,
+                    language="en"
                 )
             
             return response.text
@@ -126,13 +122,30 @@ class WhisperService:
             target_language (str): Target language for translation
 
         Returns:
-            dict: Dictionary containing both transcription and translation
+            dict: Dictionary containing transcription, translation and target language
         """
+        # start_time = time.perf_counter()
+
+        # file_size_mb = round(os.fstat(file.file.fileno()).st_size / (1024 * 1024), 2)
+        
+        # file.file.seek(0)  # Reset pointer
+        # audio = AudioSegment.from_file(file.file)
+        # audio_duration_sec = round(len(audio) / 1000, 2)  # Convert ms to seconds
+        # file.file.seek(0)  # Reset again for transcription
+
+
         # First transcribe the audio
         transcribed_text = await self.transcribe(file)
 
         # # Then translate the transcribed text
-        translated_text = await self.translate(text=transcribed_text, language=target_language)        
+        translated_text = await self.translate(text=transcribed_text, language=target_language)
+
+        # end_time = time.perf_counter()
+        # processing_time = round(end_time - start_time, 2)
+        # logger.info(
+        #     f"Processing Time: {processing_time}s | File Size: {file_size_mb}MB | Duration: {audio_duration_sec}s"
+        # )
+
         return TranscribeAndTranslate(
             transcription=transcribed_text,
             translation=translated_text,
