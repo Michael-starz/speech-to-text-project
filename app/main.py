@@ -10,16 +10,23 @@ app = FastAPI(
     version="1.0.0"
 )
 
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://your-frontend.vercel.app"
+]
 
 # Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # I need to adjust this when in production
+    allow_origins=ALLOWED_ORIGINS, # I need to adjust this when in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+@app.get("/health")
+def health():
+    return {"ok": True}
 
 # app.include_router(transcription_router, prefix="/transcribe", tags=["Transcription"])
 # app.include_router(translation_router, prefix="/translate", tags=["Translation"])
