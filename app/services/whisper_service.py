@@ -145,7 +145,11 @@ class WhisperService:
         # logger.info(
         #     f"Processing Time: {processing_time}s | File Size: {file_size_mb}MB | Duration: {audio_duration_sec}s"
         # )
-
+        print(TranscribeAndTranslate(
+            transcription=transcribed_text,
+            translation=translated_text,
+            target_language=target_language
+        ))
         return TranscribeAndTranslate(
             transcription=transcribed_text,
             translation=translated_text,

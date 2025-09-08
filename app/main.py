@@ -11,8 +11,8 @@ app = FastAPI(
 )
 
 ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://speechscribe-puce.vercel.app/"
+    "https://speechscribe-puce.vercel.app",
+    "http://localhost:5173"
 ]
 
 # Middleware
